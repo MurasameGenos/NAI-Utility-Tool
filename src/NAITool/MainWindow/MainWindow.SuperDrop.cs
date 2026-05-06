@@ -36,7 +36,7 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
-    private const float SuperDropBackdropBlurSigma = 18f;
+    private const float SuperDropBackdropBlurSigma = 28f;
 
     private bool IsSuperDropEnabled => _settings.Settings.SuperDropEnabled;
 
@@ -325,7 +325,7 @@ public sealed partial class MainWindow
             return;
 
         AnimateDouble(highlight, "Opacity", isHovering ? 0.22 : 0, 130);
-        card.BorderThickness = isHovering ? new Thickness(2) : new Thickness(1);
+        card.BorderThickness = new Thickness(1);
     }
 
     private void ResetSuperDropCardHighlights()
