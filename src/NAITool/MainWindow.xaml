@@ -517,6 +517,7 @@
                                                             PlaceholderText=""
                                                             MinHeight="34" MaxHeight="120"
                                                             TextChanged="OnStylePromptTextChanged"
+                                                            SelectionChanged="OnPromptSelectionChanged"
                                                             SizeChanged="OnStylePromptSizeChanged"
                                                             PreviewKeyDown="OnPromptPreviewKeyDown"
                                                             KeyDown="OnPromptKeyDown"
@@ -534,6 +535,7 @@
                                                             PreviewKeyDown="OnPromptPreviewKeyDown"
                                                             KeyDown="OnPromptKeyDown"
                                                             TextChanged="OnPromptTextChanged"
+                                                            SelectionChanged="OnPromptSelectionChanged"
                                                             SizeChanged="OnPromptSizeChanged"
                                                             LostFocus="OnPromptLostFocus"/>
                                 </Grid>

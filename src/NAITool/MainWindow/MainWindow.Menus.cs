@@ -133,6 +133,14 @@ public sealed partial class MainWindow
             rawItem.Click += OnEditRawMetadata;
             newEdit.Items.Add(rawItem);
 
+            var inferItem = CreateLocalizedMenuItem(
+                MenuCommandInspectTagInference,
+                "menu.edit.inspect_tag_inference",
+                new SymbolIcon(Symbol.Tag));
+            inferItem.IsEnabled = _inspectImageBytes != null;
+            inferItem.Click += async (_, _) => await RunInspectReverseTagAsync();
+            newEdit.Items.Add(inferItem);
+
             newEdit.Items.Add(new MenuFlyoutSeparator());
 
             var scrambleMenu = CreateLocalizedSubItem(
@@ -357,6 +365,23 @@ public sealed partial class MainWindow
                     item.IsEnabled = _effectsRedoStack.Count > 0;
                 else if (HasMenuCommand(item, MenuCommandReloadImage))
                     item.IsEnabled = canReload;
+            }
+        }
+        else if (_currentMode == AppMode.Inspect)
+        {
+            bool hasImage = _inspectImageBytes != null;
+            foreach (var baseItem in MenuEdit.Items)
+            {
+                if (baseItem is not MenuFlyoutItem item) continue;
+                if (HasMenuCommand(item, MenuCommandEditRawMetadata) ||
+                    HasMenuCommand(item, MenuCommandInspectTagInference))
+                    item.IsEnabled = hasImage;
+            }
+
+            foreach (var baseItem in MenuEdit.Items)
+            {
+                if (baseItem is MenuFlyoutSubItem sub && HasMenuCommand(sub, MenuCommandImageScramble))
+                    sub.IsEnabled = hasImage;
             }
         }
         else if (_currentMode == AppMode.I2I)

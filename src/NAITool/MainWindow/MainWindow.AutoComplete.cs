@@ -54,7 +54,7 @@ public sealed partial class MainWindow
 
         _acTargetTextBox = textBox;
         string token = ExtractCurrentToken(textBox);
-        if (token.Length < 1)
+        if (!IsAutoCompletePosition(textBox, token))
         {
             CloseAutoComplete();
             return;
@@ -65,8 +65,41 @@ public sealed partial class MainWindow
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
         {
             if (version != _acVersion) return;
+            if (!ReferenceEquals(_acTargetTextBox, textBox)) return;
+            if (!string.Equals(ExtractCurrentToken(textBox), token, StringComparison.Ordinal))
+                return;
             PerformAutoCompleteSearch(textBox, token);
         });
+    }
+
+    private void ValidateAutoCompletePosition(PromptTextBox textBox)
+    {
+        if (!AutoCompletePopup.IsOpen || !ReferenceEquals(_acTargetTextBox, textBox)) return;
+        if (_acInserting) return;
+
+        string token = ExtractCurrentToken(textBox);
+        if (!IsAutoCompletePosition(textBox, token))
+        {
+            CloseAutoComplete();
+            return;
+        }
+
+        PositionAutoCompletePopup(textBox);
+        TriggerAutoComplete(textBox);
+    }
+
+    private static bool IsAutoCompletePosition(PromptTextBox textBox, string token)
+    {
+        if (textBox.SelectionLength > 0) return false;
+        if (token.Length < 1) return false;
+
+        string text = textBox.Text ?? "";
+        int caret = textBox.SelectionStart;
+        if (caret < 0 || caret > text.Length) return false;
+        if (caret > 0 && (text[caret - 1] == ',' || IsAutoCompleteLineBreak(text[caret - 1]))) return false;
+        if (caret < text.Length && (text[caret] == ',' || IsAutoCompleteLineBreak(text[caret]))) return false;
+
+        return !string.IsNullOrWhiteSpace(token);
     }
 
     private static int FindTokenStart(string text, int caret)
@@ -252,6 +285,7 @@ public sealed partial class MainWindow
 
     private void CloseAutoComplete()
     {
+        _acVersion++;
         if (!AutoCompletePopup.IsOpen) return;
         AutoCompletePopup.IsOpen = false;
         AutoCompleteList.ItemsSource = null;

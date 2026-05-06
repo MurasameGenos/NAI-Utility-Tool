@@ -101,7 +101,7 @@ public sealed partial class MainWindow
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             };
 
-            var editorBox = new TextBox
+            var editorBox = new PromptTextBox
             {
                 AcceptsReturn = true,
                 TextWrapping = TextWrapping.NoWrap,
@@ -111,10 +111,10 @@ public sealed partial class MainWindow
                 IsSpellCheckEnabled = false,
                 IsEnabled = false,
                 FontFamily = new FontFamily("Consolas"),
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
                 PlaceholderText = L("wildcards.editor_placeholder"),
             };
-            ScrollViewer.SetVerticalScrollBarVisibility(editorBox, ScrollBarVisibility.Auto);
-            ScrollViewer.SetHorizontalScrollBarVisibility(editorBox, ScrollBarVisibility.Auto);
 
             lineNumbersTransform = new TranslateTransform();
             lineNumbersBlock = new TextBlock
@@ -313,6 +313,7 @@ public sealed partial class MainWindow
 
             void SelectEntry(WildcardIndexEntry entry)
             {
+                CloseAutoComplete();
                 selectedEntry = entry;
                 currentRelativePath = GetEntryDirectoryName(entry.Name);
                 UpdateBreadcrumbItems();
@@ -332,6 +333,7 @@ public sealed partial class MainWindow
 
             void ClearEntrySelectionForDirectory(string relativePath)
             {
+                CloseAutoComplete();
                 selectedEntry = null;
                 currentRelativePath = relativePath;
                 UpdateBreadcrumbItems();
@@ -465,8 +467,66 @@ public sealed partial class MainWindow
             {
                 UpdateLineNumbers();
                 if (!isLoadingEditorText)
+                {
                     UpdateSaveButtonState();
+                    TriggerAutoComplete(editorBox);
+                }
             };
+            editorBox.SelectionChanged += (_, _) => ValidateAutoCompletePosition(editorBox);
+            editorBox.PreviewKeyDown += OnWildcardEditorPreviewKeyDown;
+            editorBox.LostFocus += (_, _) => CloseAutoComplete();
+
+            void OnWildcardEditorPreviewKeyDown(object sender, KeyRoutedEventArgs e)
+            {
+                if (!AutoCompletePopup.IsOpen) return;
+
+                switch (e.Key)
+                {
+                    case Windows.System.VirtualKey.Down:
+                        if (AutoCompleteList.Items.Count > 0)
+                        {
+                            int next = AutoCompleteList.SelectedIndex + 1;
+                            if (next >= AutoCompleteList.Items.Count) next = 0;
+                            AutoCompleteList.SelectedIndex = next;
+                            AutoCompleteList.ScrollIntoView(AutoCompleteList.SelectedItem);
+                        }
+                        e.Handled = true;
+                        break;
+                    case Windows.System.VirtualKey.Up:
+                        if (AutoCompleteList.Items.Count > 0)
+                        {
+                            int prev = AutoCompleteList.SelectedIndex - 1;
+                            if (prev < 0) prev = AutoCompleteList.Items.Count - 1;
+                            AutoCompleteList.SelectedIndex = prev;
+                            AutoCompleteList.ScrollIntoView(AutoCompleteList.SelectedItem);
+                        }
+                        e.Handled = true;
+                        break;
+                    case Windows.System.VirtualKey.Tab:
+                        if (AutoCompleteList.SelectedItem is AutoCompleteItem tabSel)
+                            InsertAutoCompleteTag(tabSel.InsertText);
+                        else if (AutoCompleteList.Items.Count > 0 &&
+                                 AutoCompleteList.Items[0] is AutoCompleteItem tabFirst)
+                            InsertAutoCompleteTag(tabFirst.InsertText);
+                        e.Handled = true;
+                        break;
+                    case Windows.System.VirtualKey.Enter:
+                        if (AutoCompleteList.SelectedIndex >= 0 &&
+                            AutoCompleteList.SelectedItem is AutoCompleteItem enterSel)
+                            InsertAutoCompleteTag(enterSel.InsertText);
+                        else if (AutoCompleteList.Items.Count > 0 &&
+                                 AutoCompleteList.Items[0] is AutoCompleteItem enterFirst)
+                            InsertAutoCompleteTag(enterFirst.InsertText);
+                        else
+                            CloseAutoComplete();
+                        e.Handled = true;
+                        break;
+                    case Windows.System.VirtualKey.Escape:
+                        CloseAutoComplete();
+                        e.Handled = true;
+                        break;
+                }
+            }
 
             saveBtn = new Button
             {
@@ -616,6 +676,7 @@ public sealed partial class MainWindow
         }
         finally
         {
+            CloseAutoComplete();
             _suppressPromptAutoComplete = false;
             _isWildcardDialogOpen = false;
         }

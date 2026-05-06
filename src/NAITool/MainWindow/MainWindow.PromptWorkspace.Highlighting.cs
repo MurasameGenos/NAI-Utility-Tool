@@ -44,6 +44,12 @@ public sealed partial class MainWindow
     }
     private void OnPromptSizeChanged(object sender, SizeChangedEventArgs e) => UpdatePromptHighlights();
     private void OnPromptLostFocus(object sender, RoutedEventArgs e) => CloseAutoComplete();
+    private void OnPromptSelectionChanged(object sender, RoutedEventArgs e)
+    {
+        if (sender is not PromptTextBox textBox) return;
+        ValidateAutoCompletePosition(textBox);
+    }
+
     private void OnStylePromptTextChanged(object sender, RoutedEventArgs e)
     {
         if (sender is PromptTextBox { IsApplyingHighlights: true }) return;

@@ -69,6 +69,7 @@ public sealed partial class MainWindow : Window
     private const string MenuCommandClearAllPrompts = "clear_all_prompts";
     private const string MenuCommandResetGenerationParams = "reset_generation_params";
     private const string MenuCommandEditRawMetadata = "edit_raw_metadata";
+    private const string MenuCommandInspectTagInference = "inspect_tag_inference";
     private const string MenuCommandImageScramble = "image_scramble";
     private const string MenuCommandScramble = "scramble";
     private const string MenuCommandUnscramble = "unscramble";

@@ -189,8 +189,9 @@ public sealed partial class MainWindow
         {
             if (textBox.IsApplyingHighlights) return;
             UpdateCharacterHighlight(entry);
-            if (!_acInserting) TriggerAutoComplete(textBox);
+            if (!_acInserting && !_suppressPromptAutoComplete) TriggerAutoComplete(textBox);
         };
+        textBox.SelectionChanged += (_, _) => ValidateAutoCompletePosition(textBox);
         textBox.SizeChanged += (_, _) => UpdateCharacterHighlight(entry);
         textBox.PreviewKeyDown += OnPromptPreviewKeyDown;
         textBox.KeyDown += OnPromptKeyDown;

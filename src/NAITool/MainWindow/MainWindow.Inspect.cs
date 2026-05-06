@@ -116,12 +116,8 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_settings.Settings.ReverseTagger.ModelPath))
-        {
-            TxtStatus.Text = L("reverse.error.model_path_not_set");
-            await ShowReverseTaggerSettingsDialogAsync();
+        if (!await EnsureReverseTaggerModelAvailableAsync())
             return;
-        }
 
         string modeLabel = canvasOnly ? L("inspect.infer.canvas_mode") : L("inspect.infer.global_mode");
         TxtStatus.Text = Lf("inspect.infer.running", modeLabel);
@@ -258,6 +254,37 @@ public sealed partial class MainWindow
         return result;
     }
 
+    private bool HasAvailableReverseTaggerModel()
+    {
+        try
+        {
+            string modelDir = _settings.Settings.ReverseTagger.ModelPath?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(modelDir) || !Directory.Exists(modelDir))
+                return false;
+
+            bool hasTagsCsv = File.Exists(Path.Combine(Path.GetFullPath(modelDir), "selected_tags.csv"));
+            bool hasOnnx = Directory.GetFiles(modelDir, "*.onnx", SearchOption.AllDirectories).Length > 0;
+            return hasTagsCsv && hasOnnx;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task<bool> EnsureReverseTaggerModelAvailableAsync()
+    {
+        if (HasAvailableReverseTaggerModel())
+            return true;
+
+        TxtStatus.Text = L("reverse.error.no_available_model");
+        await ShowReverseTaggerSettingsDialogAsync();
+        bool isAvailable = HasAvailableReverseTaggerModel();
+        if (!isAvailable)
+            TxtStatus.Text = L("reverse.error.no_available_model");
+        return isAvailable;
+    }
+
     private static List<string> ParseSimpleCsvLine(string line)
     {
         var fields = new List<string>();
@@ -303,12 +330,8 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_settings.Settings.ReverseTagger.ModelPath))
-        {
-            TxtStatus.Text = L("reverse.error.model_path_not_set");
-            await ShowReverseTaggerSettingsDialogAsync();
+        if (!await EnsureReverseTaggerModelAvailableAsync())
             return;
-        }
 
         SetInspectPrimaryAction(InspectPrimaryAction.InferTags, false);
         BtnSendToGenText.Text = L("inspect.reverse.running_short");

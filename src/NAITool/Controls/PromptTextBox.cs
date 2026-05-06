@@ -31,6 +31,7 @@ public sealed class PromptTextBox : UserControl
     private Point _scrollOffsetCompensation;
 
     public event TextChangedEventHandler? TextChanged;
+    public event RoutedEventHandler? SelectionChanged;
 
     public PromptTextBox()
     {
@@ -67,7 +68,7 @@ public sealed class PromptTextBox : UserControl
             EnsureEditorScrollViewer();
             QueueHighlightRedraw();
         };
-        _editor.SelectionChanged += (_, _) => QueueHighlightRedraw();
+        _editor.SelectionChanged += OnEditorSelectionChanged;
         _editor.KeyUp += (_, _) => QueueHighlightRedraw();
         _editor.AddHandler(UIElement.PointerWheelChangedEvent,
             new PointerEventHandler((_, _) => QueueHighlightRedraw()),
@@ -127,6 +128,18 @@ public sealed class PromptTextBox : UserControl
     {
         get => _editor.IsSpellCheckEnabled;
         set => _editor.IsSpellCheckEnabled = value;
+    }
+
+    public ScrollBarVisibility VerticalScrollBarVisibility
+    {
+        get => ScrollViewer.GetVerticalScrollBarVisibility(_editor);
+        set => ScrollViewer.SetVerticalScrollBarVisibility(_editor, value);
+    }
+
+    public ScrollBarVisibility HorizontalScrollBarVisibility
+    {
+        get => ScrollViewer.GetHorizontalScrollBarVisibility(_editor);
+        set => ScrollViewer.SetHorizontalScrollBarVisibility(_editor, value);
     }
 
     public string PlaceholderText
@@ -243,6 +256,12 @@ public sealed class PromptTextBox : UserControl
     {
         QueueHighlightRedraw();
         TextChanged?.Invoke(this, e);
+    }
+
+    private void OnEditorSelectionChanged(object sender, RoutedEventArgs e)
+    {
+        QueueHighlightRedraw();
+        SelectionChanged?.Invoke(this, e);
     }
 
     private void EnsureEditorScrollViewer()
