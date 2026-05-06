@@ -371,8 +371,39 @@ public sealed class PromptTextBox : UserControl
                 pos++;
             }
 
+            TrimLineBoundsToNeighboringLines(text, pos, lineTop, ref lineBottom);
             AddHighlightRectangle(lineLeft, lineTop, lineRight, lineBottom, brush);
         }
+    }
+
+    private void TrimLineBoundsToNeighboringLines(string text, int searchStart, double lineTop, ref double lineBottom)
+    {
+        if (TryGetNextLineTop(text, searchStart, lineTop, lineBottom, out double nextLineTop))
+        {
+            lineBottom = Math.Min(lineBottom, nextLineTop);
+        }
+    }
+
+    private bool TryGetNextLineTop(string text, int searchStart, double currentTop, double currentBottom, out double nextLineTop)
+    {
+        nextLineTop = 0;
+
+        for (int i = Math.Max(0, searchStart); i < text.Length; i++)
+        {
+            if (IsLineBreak(text[i]))
+                continue;
+
+            if (!TryGetCharacterBox(i, out _, out double top, out _, out double bottom))
+                continue;
+
+            if (IsSameTextLine(currentTop, currentBottom, top, bottom))
+                continue;
+
+            nextLineTop = top;
+            return true;
+        }
+
+        return false;
     }
 
     private bool TryGetCharacterBox(int index, out double left, out double top, out double right, out double bottom)
@@ -540,8 +571,9 @@ public sealed class PromptTextBox : UserControl
     {
         left += HighlightHorizontalOffset;
         right += HighlightHorizontalOffset;
-        top += HighlightVerticalInset;
-        bottom -= HighlightVerticalInset;
+        double verticalInset = Math.Min(HighlightVerticalInset, Math.Max(0, bottom - top) * 0.25);
+        top += verticalInset;
+        bottom -= verticalInset;
 
         left = Math.Max(0, left);
         top = Math.Max(0, top);
@@ -578,7 +610,9 @@ public sealed class PromptTextBox : UserControl
     {
         double overlap = Math.Min(bottom, otherBottom) - Math.Max(top, otherTop);
         double height = Math.Min(bottom - top, otherBottom - otherTop);
-        return overlap > Math.Max(1, height * 0.45);
+        double centerDistance = Math.Abs(((top + bottom) * 0.5) - ((otherTop + otherBottom) * 0.5));
+        return overlap > Math.Max(1, height * 0.45)
+            && centerDistance < Math.Max(2, height * 0.35);
     }
 
     private static bool AreClose(double left, double right) =>
