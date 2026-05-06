@@ -58,7 +58,10 @@ public class NovelAIService : IDisposable
         WriteIndented = true,
     };
 
+    private readonly object _httpClientLock = new();
+    private readonly List<HttpClient> _retiredHttpClients = [];
     private HttpClient? _httpClient;
+    private string? _httpClientProxyKey;
     private readonly SettingsService _settings;
 
     public NovelAIService(SettingsService settings) { _settings = settings; }
@@ -70,18 +73,34 @@ public class NovelAIService : IDisposable
 
     private HttpClient GetOrCreateClient()
     {
-        _httpClient?.Dispose();
-        var handler = new HttpClientHandler();
-        if (_settings.Settings.UseProxy && !string.IsNullOrEmpty(_settings.Settings.ProxyPort))
+        string proxyKey = _settings.Settings.UseProxy && !string.IsNullOrEmpty(_settings.Settings.ProxyPort)
+            ? _settings.Settings.ProxyPort
+            : "";
+
+        lock (_httpClientLock)
         {
-            handler.Proxy = new WebProxy($"http://127.0.0.1:{_settings.Settings.ProxyPort}");
-            handler.UseProxy = true;
+            if (_httpClient == null || _httpClientProxyKey != proxyKey)
+            {
+                if (_httpClient != null)
+                    _retiredHttpClients.Add(_httpClient);
+
+                var handler = new HttpClientHandler();
+                if (!string.IsNullOrEmpty(proxyKey))
+                {
+                    handler.Proxy = new WebProxy($"http://127.0.0.1:{proxyKey}");
+                    handler.UseProxy = true;
+                }
+
+                _httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(300) };
+                _httpClientProxyKey = proxyKey;
+            }
+
+            if (!string.IsNullOrEmpty(_settings.Settings.ApiToken))
+                _httpClient.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _settings.Settings.ApiToken);
+
+            return _httpClient;
         }
-        _httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(300) };
-        if (!string.IsNullOrEmpty(_settings.Settings.ApiToken))
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _settings.Settings.ApiToken);
-        return _httpClient;
     }
 
     public async Task<(bool Success, string Message)> TestConnectionAsync(
@@ -1528,5 +1547,14 @@ public class NovelAIService : IDisposable
         }
     }
 
-    public void Dispose() { _httpClient?.Dispose(); }
+    public void Dispose()
+    {
+        lock (_httpClientLock)
+        {
+            _httpClient?.Dispose();
+            foreach (var client in _retiredHttpClients)
+                client.Dispose();
+            _retiredHttpClients.Clear();
+        }
+    }
 }

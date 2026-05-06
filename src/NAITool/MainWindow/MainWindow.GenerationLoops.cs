@@ -192,13 +192,12 @@ public sealed partial class MainWindow
         try
         {
             var accountInfo = await _naiService.GetAccountInfoAsync();
-            _anlasBalance = accountInfo?.AnlasBalance;
-            _isOpusSubscriber = accountInfo?.IsOpus == true;
-            _hasActiveSubscription = accountInfo?.HasActiveSubscription == true;
-            _anlasInitialFetchDone = true;
-
             if (accountInfo != null)
             {
+                _anlasBalance = accountInfo.AnlasBalance;
+                _isOpusSubscriber = accountInfo.IsOpus;
+                _hasActiveSubscription = accountInfo.HasActiveSubscription;
+                _anlasInitialFetchDone = true;
                 _settings.UpdateCachedAccountInfo(
                     accountInfo.AnlasBalance,
                     accountInfo.TierName,
