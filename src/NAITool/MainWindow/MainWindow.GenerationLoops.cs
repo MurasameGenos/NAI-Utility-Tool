@@ -64,6 +64,10 @@ public sealed partial class MainWindow
         };
 
         var buttons = new List<Button>();
+        Style? normalButtonStyle = null;
+        Style? accentButtonStyle = Application.Current.Resources.TryGetValue("AccentButtonStyle", out var accentStyleObj)
+            ? accentStyleObj as Style
+            : null;
         Flyout? flyout = null;
         for (int i = 1; i <= 6; i++)
         {
@@ -75,6 +79,7 @@ public sealed partial class MainWindow
                 Padding = new Thickness(10, 4, 10, 4),
                 Tag = count,
             };
+            normalButtonStyle ??= button.Style;
             button.Click += (_, _) =>
             {
                 flyout?.Hide();
@@ -116,6 +121,21 @@ public sealed partial class MainWindow
             hintText.Text = canStart
                 ? L("generate.continuous.hint")
                 : L("generate.continuous.unavailable");
+
+            bool useAnlasStyle = canStart && EstimateCurrentRequestAnlasCost() > 0;
+            foreach (var button in buttons)
+            {
+                if (useAnlasStyle && accentButtonStyle != null)
+                {
+                    button.Style = accentButtonStyle;
+                    ApplyGoldAccentButtonStyle(button);
+                }
+                else
+                {
+                    ClearGoldAccentButtonStyle(button);
+                    button.Style = normalButtonStyle;
+                }
+            }
         };
         BtnGenerate.ContextFlyout = flyout;
     }

@@ -923,7 +923,7 @@
     "post.preset.applied":  "プリセットを適用しました: {0}",
     "post.preset.load_failed":  "プリセットの読み込みに失敗しました: {0}",
     "button.send":  "送信",
-    "button.setup_api":  "API を設定",
+    "button.setup_api":  "先にAPI設定",
     "status.syncing_account":  "アカウント情報を同期中",
     "generate.continuous.stopped_requests":  "自動生成を停止しました: {0} 回リクエスト送信済み",
     "generate.continuous.progress":  "連続生成: {0}/{1} 件目を実行中...",

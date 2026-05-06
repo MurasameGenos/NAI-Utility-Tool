@@ -923,7 +923,7 @@
   "post.preset.applied": "Applied preset: {0}",
   "post.preset.load_failed": "Failed to load preset: {0}",
   "button.send": "Send",
-  "button.setup_api": "Set up API",
+  "button.setup_api": "Set API needed",
   "status.syncing_account": "Syncing account info",
   "generate.continuous.stopped_requests": "Auto-generation stopped: sent {0} requests",
   "generate.continuous.progress": "Continuous generation: request {0}/{1}...",

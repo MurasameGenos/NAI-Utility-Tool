@@ -923,7 +923,7 @@
     "post.preset.applied":  "已套用預設：{0}",
     "post.preset.load_failed":  "讀取預設失敗: {0}",
     "button.send":  "傳送",
-    "button.setup_api":  "設定 API",
+    "button.setup_api":  "請先設定API",
     "status.syncing_account":  "正在同步帳戶資訊",
     "generate.continuous.stopped_requests":  "自動生成已停止：已傳送 {0} 次請求",
     "generate.continuous.progress":  "連續生成：正在執行第 {0}/{1} 次請求...",
