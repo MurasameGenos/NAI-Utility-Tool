@@ -177,7 +177,6 @@ public sealed partial class MainWindow
         var textGrid = new Grid { MinHeight = 50, MaxHeight = 120 };
         var textBox = new PromptTextBox
         {
-            Background = (Brush)Application.Current.Resources["ControlFillColorTransparentBrush"],
             AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
             IsSpellCheckEnabled = false,
             PlaceholderText = entry.IsPositiveTab ? L("character.prompt_positive_placeholder") : L("character.prompt_negative_placeholder"),

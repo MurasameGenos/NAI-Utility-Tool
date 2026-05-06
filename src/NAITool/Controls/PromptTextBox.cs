@@ -21,7 +21,6 @@ public sealed class PromptTextBox : UserControl
     private readonly Grid _root;
     private readonly Canvas _highlightCanvas;
     private readonly TextBox _editor;
-    private readonly SolidColorBrush _transparentBrush = new(Color.FromArgb(0, 0, 0, 0));
     private readonly List<PromptTextHighlight> _highlights = new();
     private readonly List<ScrollViewer> _editorScrollViewers = new();
     private bool _isHighlightRedrawQueued;
@@ -42,7 +41,6 @@ public sealed class PromptTextBox : UserControl
 
         _editor = new TextBox
         {
-            Background = _transparentBrush,
             AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap,
             IsSpellCheckEnabled = false,

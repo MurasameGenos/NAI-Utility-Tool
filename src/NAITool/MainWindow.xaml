@@ -510,7 +510,6 @@
                                 <Grid Grid.Row="0" Visibility="Collapsed"
                                       x:Name="StylePromptGrid">
                                     <controls:PromptTextBox x:Name="TxtStylePrompt"
-                                                            Background="{ThemeResource ControlFillColorTransparentBrush}"
                                                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                             AcceptsReturn="True" TextWrapping="Wrap"
                                                             IsSpellCheckEnabled="False"
@@ -526,7 +525,6 @@
 
                                 <Grid Grid.Row="1">
                                     <controls:PromptTextBox x:Name="TxtPrompt"
-                                                            Background="{ThemeResource ControlFillColorTransparentBrush}"
                                                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                             AcceptsReturn="True"
                                                             TextWrapping="Wrap"
