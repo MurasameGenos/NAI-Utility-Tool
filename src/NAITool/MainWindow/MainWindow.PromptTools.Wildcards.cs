@@ -16,6 +16,7 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -36,10 +37,14 @@ namespace NAITool;
 
 public sealed partial class MainWindow
 {
+    private bool _suppressPromptAutoComplete;
+
     private async void ShowWildcardDialog()
     {
         if (_isWildcardDialogOpen) return;
         _isWildcardDialogOpen = true;
+        _suppressPromptAutoComplete = true;
+        CloseAutoComplete();
 
         try
         {
@@ -48,6 +53,19 @@ public sealed partial class MainWindow
 
             WildcardIndexEntry? selectedEntry = null;
             string currentRelativePath = "";
+            string savedEditorText = "";
+            bool isLoadingEditorText = false;
+            Button? saveBtn = null;
+            Button? addToPromptBtn = null;
+            TextBlock? lineNumbersBlock = null;
+            TranslateTransform? lineNumbersTransform = null;
+            ScrollViewer? editorScrollViewer = null;
+            ContentDialog? dialog = null;
+            Style? normalSaveButtonStyle = null;
+            Style? accentButtonStyle = Application.Current.Resources.TryGetValue("AccentButtonStyle", out var accentStyleObj)
+                && accentStyleObj is Style accentStyle
+                    ? accentStyle
+                    : null;
 
             var breadcrumbIcon = new FontIcon
             {
@@ -86,16 +104,55 @@ public sealed partial class MainWindow
             var editorBox = new TextBox
             {
                 AcceptsReturn = true,
-                TextWrapping = TextWrapping.Wrap,
+                TextWrapping = TextWrapping.NoWrap,
                 VerticalAlignment = VerticalAlignment.Stretch,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 MinHeight = 0,
                 IsSpellCheckEnabled = false,
                 IsEnabled = false,
+                FontFamily = new FontFamily("Consolas"),
                 PlaceholderText = L("wildcards.editor_placeholder"),
             };
             ScrollViewer.SetVerticalScrollBarVisibility(editorBox, ScrollBarVisibility.Auto);
             ScrollViewer.SetHorizontalScrollBarVisibility(editorBox, ScrollBarVisibility.Auto);
+
+            lineNumbersTransform = new TranslateTransform();
+            lineNumbersBlock = new TextBlock
+            {
+                Text = "1",
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = editorBox.FontSize,
+                Opacity = 0.55,
+                TextAlignment = TextAlignment.Right,
+                Margin = new Thickness(0, 5, 0, 5),
+                RenderTransform = lineNumbersTransform,
+            };
+
+            var lineNumberHost = new Border
+            {
+                Width = 44,
+                Margin = new Thickness(4),
+                Padding = new Thickness(0, 1, 8, 1),
+                Background = (Brush)Application.Current.Resources["ControlFillColorDefaultBrush"],
+                CornerRadius = new CornerRadius(3),
+                Child = lineNumbersBlock,
+            };
+
+            var editorGrid = new Grid();
+            editorGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            editorGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            Grid.SetColumn(lineNumberHost, 0);
+            Grid.SetColumn(editorBox, 1);
+            editorGrid.Children.Add(lineNumberHost);
+            editorGrid.Children.Add(editorBox);
+
+            var editorFrame = new Border
+            {
+                BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"],
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4),
+                Child = editorGrid,
+            };
 
             var metaBlock = new TextBlock
             {
@@ -113,6 +170,83 @@ public sealed partial class MainWindow
             var listItemPathMap = new Dictionary<FrameworkElement, string>();
             var listItemEntryMap = new Dictionary<FrameworkElement, WildcardIndexEntry>();
             var expandedDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+            {
+                int count = VisualTreeHelper.GetChildrenCount(root);
+                for (int i = 0; i < count; i++)
+                {
+                    var child = VisualTreeHelper.GetChild(root, i);
+                    if (child is T typed)
+                        return typed;
+
+                    var found = FindDescendant<T>(child);
+                    if (found != null)
+                        return found;
+                }
+                return null;
+            }
+
+            void UpdateLineNumbers()
+            {
+                if (lineNumbersBlock == null || lineNumbersTransform == null) return;
+
+                string text = editorBox.Text ?? "";
+                int lineCount = text.Length == 0 ? 1 : text.Replace("\r\n", "\n").Replace('\r', '\n').Count(ch => ch == '\n') + 1;
+
+                lineNumbersBlock.Inlines.Clear();
+                for (int i = 1; i <= lineCount; i++)
+                {
+                    if (i > 1)
+                        lineNumbersBlock.Inlines.Add(new LineBreak());
+                    lineNumbersBlock.Inlines.Add(new Run { Text = i.ToString(CultureInfo.InvariantCulture) });
+                }
+                lineNumbersTransform.Y = -(editorScrollViewer?.VerticalOffset ?? 0);
+            }
+
+            void AttachEditorScrollViewer()
+            {
+                if (editorScrollViewer != null) return;
+
+                editorScrollViewer = FindDescendant<ScrollViewer>(editorBox);
+                if (editorScrollViewer == null) return;
+
+                editorScrollViewer.ViewChanged += (_, _) => UpdateLineNumbers();
+                UpdateLineNumbers();
+            }
+
+            bool IsEditorDirty() =>
+                selectedEntry != null && !string.Equals(
+                    NormalizeEditorText(editorBox.Text ?? ""),
+                    NormalizeEditorText(savedEditorText),
+                    StringComparison.Ordinal);
+
+            static string NormalizeEditorText(string text) =>
+                (text ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n');
+
+            void UpdateSaveButtonState()
+            {
+                if (saveBtn == null) return;
+
+                bool dirty = IsEditorDirty();
+                saveBtn.Style = dirty && accentButtonStyle != null ? accentButtonStyle : normalSaveButtonStyle;
+                saveBtn.IsEnabled = selectedEntry != null;
+            }
+
+            void UpdateSelectionButtons()
+            {
+                if (addToPromptBtn != null)
+                    addToPromptBtn.IsEnabled = selectedEntry != null;
+            }
+
+            static string BuildPromptAppendPrefix(string prompt)
+            {
+                if (string.IsNullOrEmpty(prompt)) return "";
+                if (prompt.EndsWith("\n", StringComparison.Ordinal)) return "";
+                if (prompt.EndsWith(", ", StringComparison.Ordinal)) return "";
+                if (prompt.EndsWith(",", StringComparison.Ordinal)) return " ";
+                return ", ";
+            }
 
             static string GetEntryDirectoryName(string entryName)
             {
@@ -183,8 +317,15 @@ public sealed partial class MainWindow
                 currentRelativePath = GetEntryDirectoryName(entry.Name);
                 UpdateBreadcrumbItems();
                 editorBox.IsEnabled = true;
-                editorBox.Text = File.Exists(entry.FilePath)
+                savedEditorText = File.Exists(entry.FilePath)
                     ? File.ReadAllText(entry.FilePath, Encoding.UTF8) : "";
+                isLoadingEditorText = true;
+                editorBox.Text = savedEditorText;
+                savedEditorText = editorBox.Text ?? "";
+                isLoadingEditorText = false;
+                UpdateLineNumbers();
+                UpdateSaveButtonState();
+                UpdateSelectionButtons();
                 UpdateDirectoryMeta(
                     Lf("wildcards.entry_meta", entry.Name, entry.OptionCount, entry.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")));
             }
@@ -195,7 +336,13 @@ public sealed partial class MainWindow
                 currentRelativePath = relativePath;
                 UpdateBreadcrumbItems();
                 editorBox.IsEnabled = false;
+                savedEditorText = "";
+                isLoadingEditorText = true;
                 editorBox.Text = "";
+                isLoadingEditorText = false;
+                UpdateLineNumbers();
+                UpdateSaveButtonState();
+                UpdateSelectionButtons();
                 UpdateDirectoryMeta(L("wildcards.browse_or_select"));
             }
 
@@ -313,12 +460,22 @@ public sealed partial class MainWindow
                 TxtStatus.Text = L("wildcards.reloaded");
             };
 
-            var saveBtn = new Button
+            editorBox.Loaded += (_, _) => AttachEditorScrollViewer();
+            editorBox.TextChanged += (_, _) =>
+            {
+                UpdateLineNumbers();
+                if (!isLoadingEditorText)
+                    UpdateSaveButtonState();
+            };
+
+            saveBtn = new Button
             {
                 Width = 32, Height = 32,
                 Padding = new Thickness(0),
                 Content = new FontIcon { FontFamily = SymbolFontFamily, Glyph = "\uE74E" },
             };
+            normalSaveButtonStyle = saveBtn.Style;
+            saveBtn.IsEnabled = false;
             ToolTipService.SetToolTip(saveBtn, L("menu.file.save"));
             saveBtn.Click += (_, _) =>
             {
@@ -329,8 +486,10 @@ public sealed partial class MainWindow
                 }
                 Directory.CreateDirectory(Path.GetDirectoryName(selectedEntry.FilePath)!);
                 File.WriteAllText(selectedEntry.FilePath, editorBox.Text ?? "", Encoding.UTF8);
+                savedEditorText = editorBox.Text ?? "";
                 LoadWildcards();
                 RebuildBrowserTree(selectedEntry.Name, currentRelativePath);
+                UpdateSaveButtonState();
                 TxtStatus.Text = Lf("wildcards.saved", selectedEntry.Name);
             };
 
@@ -352,17 +511,62 @@ public sealed partial class MainWindow
             editorHeader.Children.Add(editorLabel);
             editorHeader.Children.Add(saveBtn);
             Grid.SetRow(editorHeader, 0);
-            Grid.SetRow(editorBox, 1);
+            Grid.SetRow(editorFrame, 1);
             rightPanel.Children.Add(editorHeader);
-            rightPanel.Children.Add(editorBox);
+            rightPanel.Children.Add(editorFrame);
 
-            var bottomButtonRow = new StackPanel
+            var leftButtonRow = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 8,
             };
-            bottomButtonRow.Children.Add(openBtn);
-            bottomButtonRow.Children.Add(reloadBtn);
+            leftButtonRow.Children.Add(openBtn);
+            leftButtonRow.Children.Add(reloadBtn);
+
+            addToPromptBtn = new Button
+            {
+                Content = L("wildcards.add_to_prompt"),
+                MinWidth = 128,
+                IsEnabled = false,
+            };
+            addToPromptBtn.Click += (_, _) =>
+            {
+                if (selectedEntry == null)
+                {
+                    TxtStatus.Text = L("wildcards.select_entry_first");
+                    return;
+                }
+
+                SaveCurrentPromptToBuffer();
+                string insertText = BuildWildcardInsertText(selectedEntry.Name);
+                string prompt = TxtPrompt.Text ?? "";
+                string prefix = BuildPromptAppendPrefix(prompt);
+                TxtPrompt.Text = prompt + prefix + insertText;
+                TxtPrompt.SelectionStart = TxtPrompt.Text.Length;
+                TxtPrompt.Focus(FocusState.Programmatic);
+                SaveCurrentPromptToBuffer();
+                UpdatePromptHighlights();
+                TxtStatus.Text = Lf("wildcards.added_to_prompt", selectedEntry.Name);
+            };
+
+            var closeBtn = new Button
+            {
+                Content = L("button.close"),
+                MinWidth = 72,
+            };
+            closeBtn.Click += (_, _) => dialog?.Hide();
+
+            var bottomButtonGrid = new Grid { ColumnSpacing = 8 };
+            bottomButtonGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            bottomButtonGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            bottomButtonGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            bottomButtonGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Grid.SetColumn(leftButtonRow, 0);
+            Grid.SetColumn(addToPromptBtn, 2);
+            Grid.SetColumn(closeBtn, 3);
+            bottomButtonGrid.Children.Add(leftButtonRow);
+            bottomButtonGrid.Children.Add(addToPromptBtn);
+            bottomButtonGrid.Children.Add(closeBtn);
 
             var bodyGrid = new Grid
             {
@@ -393,16 +597,16 @@ public sealed partial class MainWindow
             panel.Children.Add(breadcrumbRow);
             panel.Children.Add(bodyGrid);
             panel.Children.Add(footerGrid);
-            panel.Children.Add(bottomButtonRow);
+            panel.Children.Add(bottomButtonGrid);
 
             RebuildBrowserTree(preferredDirectory: "");
+            UpdateSelectionButtons();
 
-            var dialog = new ContentDialog
+            dialog = new ContentDialog
             {
                 Title = L("wildcards.title"),
                 Content = panel,
-                CloseButtonText = L("button.close"),
-                DefaultButton = ContentDialogButton.Close,
+                DefaultButton = ContentDialogButton.None,
                 XamlRoot = this.Content.XamlRoot,
                 RequestedTheme = ((FrameworkElement)this.Content).RequestedTheme,
             };
@@ -412,6 +616,7 @@ public sealed partial class MainWindow
         }
         finally
         {
+            _suppressPromptAutoComplete = false;
             _isWildcardDialogOpen = false;
         }
     }

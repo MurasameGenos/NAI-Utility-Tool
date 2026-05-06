@@ -491,6 +491,8 @@ public sealed partial class MainWindow
                 return CreatePageLayout("MaidAeka.png",
                     CreateTitle(L("oobe.welcome.title"), "\uE734"),
                     versionText,
+                    CreateBodyText(L("oobe.welcome.license")),
+                    CreateBodyText(L("oobe.welcome.star")),
                     CreateExternalLinkRow(
                         L("oobe.welcome.github_label"),
                         "https://github.com/Aeka0/NAI-Utility-Tool"));
@@ -941,6 +943,6 @@ public sealed partial class MainWindow
 
     private static string GetAppVersionText()
     {
-        return "1.0.0";
+        return "1.0.1";
     }
 }

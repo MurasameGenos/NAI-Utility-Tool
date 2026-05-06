@@ -40,7 +40,7 @@ public sealed partial class MainWindow
     {
         if (sender is PromptTextBox { IsApplyingHighlights: true }) return;
         UpdatePromptHighlights();
-        if (!_acInserting) TriggerAutoComplete(TxtPrompt);
+        if (!_acInserting && !_suppressPromptAutoComplete) TriggerAutoComplete(TxtPrompt);
     }
     private void OnPromptSizeChanged(object sender, SizeChangedEventArgs e) => UpdatePromptHighlights();
     private void OnPromptLostFocus(object sender, RoutedEventArgs e) => CloseAutoComplete();
@@ -48,7 +48,7 @@ public sealed partial class MainWindow
     {
         if (sender is PromptTextBox { IsApplyingHighlights: true }) return;
         UpdateStyleHighlights();
-        if (!_acInserting) TriggerAutoComplete(TxtStylePrompt);
+        if (!_acInserting && !_suppressPromptAutoComplete) TriggerAutoComplete(TxtStylePrompt);
     }
     private void OnStylePromptSizeChanged(object sender, SizeChangedEventArgs e) => UpdateStyleHighlights();
 
